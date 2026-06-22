@@ -1,5 +1,6 @@
 # Databricks notebook source
 
+
 # COMMAND ----------
 
 # MAGIC %md
@@ -11,6 +12,10 @@
 # COMMAND ----------
 
 # MAGIC %pip install prophet plotly --quiet
+
+# COMMAND ----------
+
+# MAGIC  %restart_python
 
 # COMMAND ----------
 
@@ -28,7 +33,8 @@ from plotly import graph_objs as go
 
 # ── Widgets ───────────────────────────────────────────────────────────────────
 
-dbutils.widgets.dropdown("ticker", "", listar_tickers_disponiveis(spark), "Selecione a ação")
+tickers_list = listar_tickers_disponiveis(spark)
+dbutils.widgets.dropdown("ticker", tickers_list[0] if tickers_list else "BOVA11.SA", tickers_list, "Selecione a ação")
 dbutils.widgets.text("dt_inicial", "2020-01-01", "Data Inicial (AAAA-MM-DD)")
 dbutils.widgets.text("dt_final", date.today().strftime("%Y-%m-%d"), "Data Final (AAAA-MM-DD)")
 dbutils.widgets.text("meses_previsao", "6", "Meses de Previsão (1-24)")
@@ -148,3 +154,7 @@ else:
     rec_html = html_alert("<b>Recomendação: Tendência Baixista</b> — Recomenda-se cautela ou redução de posições.", "error")
 
 displayHTML(metrics_html + rec_html)
+
+# COMMAND ----------
+
+

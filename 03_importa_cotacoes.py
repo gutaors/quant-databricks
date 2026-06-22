@@ -1,5 +1,6 @@
 # Databricks notebook source
 
+
 # COMMAND ----------
 
 # MAGIC %md
@@ -11,6 +12,10 @@
 # COMMAND ----------
 
 # MAGIC %pip install yfinance --quiet
+
+# COMMAND ----------
+
+# MAGIC %restart_python
 
 # COMMAND ----------
 
@@ -26,8 +31,10 @@ from datetime import datetime, timedelta
 
 # ── Widgets ───────────────────────────────────────────────────────────────────
 
+dbutils.widgets.removeAll()
 dbutils.widgets.text("ticker_importar", "", "Ticker para importar (ex: PETR4.SA)")
 dbutils.widgets.dropdown("acao", "importar", ["importar", "atualizar_todos", "listar"], "Ação")
+displayHTML("<div style='margin-top:20px'></div>")
 
 # COMMAND ----------
 
@@ -178,3 +185,7 @@ try:
                 print(f"  Primeiro: {pdf['Date'].min().date()}  |  Último: {pdf['Date'].max().date()}  |  Registros: {len(pdf)}")
 except Exception:
     print("Tabela ainda não criada. Importe o primeiro ticker.")
+
+# COMMAND ----------
+
+

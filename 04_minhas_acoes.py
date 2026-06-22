@@ -1,5 +1,6 @@
 # Databricks notebook source
 
+
 # COMMAND ----------
 
 # MAGIC %md
@@ -11,6 +12,10 @@
 # COMMAND ----------
 
 # MAGIC %pip install yfinance --quiet
+
+# COMMAND ----------
+
+# MAGIC %restart_python
 
 # COMMAND ----------
 
@@ -146,3 +151,7 @@ df_analises = df_analises.merge(
 
 displayHTML("<h3>📋 Análise Consolidada do Portfólio</h3>")
 display(spark.createDataFrame(df_analises))
+
+# COMMAND ----------
+
+

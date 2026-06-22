@@ -1,5 +1,6 @@
 # Databricks notebook source
 
+
 # COMMAND ----------
 
 # MAGIC %md
@@ -22,7 +23,9 @@ from datetime import date, datetime, timedelta
 
 # ── Widgets ───────────────────────────────────────────────────────────────────
 
-dbutils.widgets.dropdown("ticker", "", listar_tickers_disponiveis(spark), "Escolha a ação")
+tickers_list = listar_tickers_disponiveis(spark)
+default_ticker = tickers_list[0] if tickers_list else ""
+dbutils.widgets.dropdown("ticker", default_ticker, tickers_list, "Escolha a ação")
 dbutils.widgets.text("data_compra", date.today().strftime("%Y-%m-%d"), "Data de Compra (AAAA-MM-DD)")
 dbutils.widgets.text("data_venda", date.today().strftime("%Y-%m-%d"), "Data de Venda (AAAA-MM-DD)")
 dbutils.widgets.text("valor_investido", "1000.00", "Valor Investido (R$)")
@@ -257,3 +260,7 @@ if not df_tickers.empty and "ticker" in df_tickers.columns:
         displayHTML(html_alert(f"A ação <b>{ticker}</b> não está no seu portfólio.", "info"))
 else:
     displayHTML(html_alert("Tabela de tickers do portfólio não encontrada ou vazia.", "warning"))
+
+# COMMAND ----------
+
+

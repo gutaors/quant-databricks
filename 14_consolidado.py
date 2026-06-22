@@ -1,5 +1,6 @@
 # Databricks notebook source
 
+
 # COMMAND ----------
 
 # MAGIC %md
@@ -16,6 +17,10 @@
 # COMMAND ----------
 
 # MAGIC %pip install prophet yfinance torch transformers plotly --quiet
+
+# COMMAND ----------
+
+# MAGIC %restart_python
 
 # COMMAND ----------
 

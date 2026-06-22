@@ -1,5 +1,6 @@
 # Databricks notebook source
 
+
 # COMMAND ----------
 
 # MAGIC %md
@@ -22,7 +23,8 @@ from datetime import date, datetime, timedelta
 
 # ── Widgets ───────────────────────────────────────────────────────────────────
 
-dbutils.widgets.dropdown("ticker", "", listar_tickers_disponiveis(spark), "Selecione o ativo")
+tickers_list = listar_tickers_disponiveis(spark)
+dbutils.widgets.dropdown("ticker", tickers_list[0] if tickers_list else "BOVA11.SA", tickers_list, "Selecione o ativo")
 dbutils.widgets.text("data_compra", "2024-01-02", "Data de Compra (AAAA-MM-DD)")
 dbutils.widgets.text("data_venda", date.today().strftime("%Y-%m-%d"), "Data de Venda (AAAA-MM-DD)")
 dbutils.widgets.text("valor_investimento", "1000.00", "Valor de investimento (R$)")
@@ -108,8 +110,8 @@ if not df_periodo.empty:
     data_max = df_periodo[df_periodo["Close"] == df_periodo["Close"].max()]["Date"].iloc[0]
     data_min = df_periodo[df_periodo["Close"] == df_periodo["Close"].min()]["Date"].iloc[0]
     metrics_html += f"""
-    {html_metric("Maior no Período", formatar_moeda(max_periodo), f"Em {formatar_data(data_max)}")}
-    {html_metric("Menor no Período", formatar_moeda(min_periodo), f"Em {formatar_data(data_min)}")}
+    {html_metric("Maior no Período", f"{formatar_moeda(max_periodo)} (Em {formatar_data(data_max)})", None)}
+    {html_metric("Menor no Período", f"{formatar_moeda(min_periodo)} (Em {formatar_data(data_min)})", None)}
     """
 
 metrics_html += f"""
@@ -155,3 +157,7 @@ displayHTML(fig.to_html())
 
 displayHTML("<h3>Últimos 10 registros</h3>")
 display(spark.createDataFrame(df_valores.tail(10)))
+
+# COMMAND ----------
+
+

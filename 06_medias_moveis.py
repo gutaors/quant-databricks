@@ -1,5 +1,6 @@
 # Databricks notebook source
 
+
 # COMMAND ----------
 
 # MAGIC %md
@@ -24,8 +25,14 @@ from datetime import date
 
 # ── Widgets ───────────────────────────────────────────────────────────────────
 
-dbutils.widgets.dropdown("ticker", "", listar_tickers_disponiveis(spark), "Escolha o Ativo")
+tickers_list = listar_tickers_disponiveis(spark)
+dbutils.widgets.dropdown("ticker", tickers_list[0] if tickers_list else "", tickers_list, "Escolha o Ativo")
 dbutils.widgets.text("data_corte", date.today().strftime("%Y-%m-%d"), "Data de Corte (AAAA-MM-DD)")
+
+displayHTML("<b>Escolha o Ativo:</b>")
+displayHTML(dbutils.widgets.get("ticker"))
+displayHTML("<b>Data de Corte:</b>")
+displayHTML(dbutils.widgets.get("data_corte"))
 
 # COMMAND ----------
 
