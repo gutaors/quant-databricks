@@ -29,6 +29,7 @@ TABELA_ACOES = "workspace.default.acoes_raw"
 TABELA_ORGAOS = "workspace.default.orgaos_unificados"
 TABELA_SIORG = "workspace.default.siorg_unidades"
 TABELA_NOTICIAS = "workspace.default.noticias"
+TABELA_COTACOES_INTRADAY = "workspace.default.cotacoes_intraday"
 
 # COMMAND ----------
 
