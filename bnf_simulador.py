@@ -953,3 +953,551 @@ else:
 # MAGIC 5. **Controle emocional** — pânico e ganância são seus piores inimigos
 # MAGIC 6. **Diversifique as posições** — nunca coloque tudo em um único ativo
 # MAGIC 7. **Kairi é seu guia** — o preço sempre reverte à média, mais cedo ou mais tarde
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ---
+# MAGIC ## 📈 Backtesting — O que aconteceu depois?
+# MAGIC
+# MAGIC > Esta seção só é executada quando a **data de corte é no passado**.
+# MAGIC > Se a data de corte for hoje ou futura, esta seção é ignorada automaticamente.
+# MAGIC >
+# MAGIC > Para cada ativo recomendado, verificamos:
+# MAGIC > - ✅ Se o preço atingiu o **alvo** após a data de corte
+# MAGIC > - ❌ Se o preço caiu abaixo de um **stop implícito** (-10% do preço de entrada)
+# MAGIC > - 📅 Em qual data o alvo foi atingido (caso positivo)
+# MAGIC > - 📊 Gráfico de preço do ativo do início ao fim, com linha vertical na data de corte
+
+# COMMAND ----------
+
+# DBTITLE 1,Verificação — Data de Corte no Passado?
+import matplotlib
+matplotlib.use("Agg")  # backend sem display (compatível com Databricks)
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+import matplotlib.patches as mpatches
+import base64
+from io import BytesIO
+
+HOJE = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+DIAS_APOS_CORTE = (HOJE - DATA_CORTE).days
+
+print(f"📅 Data de corte : {DATA_CORTE.strftime('%d/%m/%Y')}")
+print(f"📅 Data atual    : {HOJE.strftime('%d/%m/%Y')}")
+print(f"⏱️  Dias após corte: {DIAS_APOS_CORTE}")
+
+if DIAS_APOS_CORTE < 3:
+    print("\n🔵 Data de corte muito próxima de hoje — backtesting ignorado.")
+    FAZER_BACKTEST = False
+else:
+    print(f"\n✅ {DIAS_APOS_CORTE} dias de dados disponíveis após o corte → executando backtesting!")
+    FAZER_BACKTEST = True
+
+# COMMAND ----------
+
+# DBTITLE 1,Download de Dados Pós-Corte
+if FAZER_BACKTEST and resultados_filtrados:
+    tickers_rec = list({r["ticker"] for r in resultados_filtrados})
+    print(f"🔽 Baixando dados pós-corte para {len(tickers_rec)} ativos recomendados...")
+    print(f"   Período: {DATA_CORTE.strftime('%d/%m/%Y')} → {HOJE.strftime('%d/%m/%Y')}\n")
+
+    # Download do período pós-corte (do dia seguinte ao corte até hoje)
+    DATA_POS = DATA_CORTE + timedelta(days=1)
+    DADOS_POS_CORTE = baixar_dados(
+        tickers_rec,
+        DATA_POS,
+        HOJE + timedelta(days=1),  # +1 para incluir hoje
+        batch_size=10,
+    )
+
+    # Download do período completo (início até hoje) para os gráficos
+    print("\n🔽 Baixando histórico completo para gráficos...")
+    DADOS_FULL = baixar_dados(
+        tickers_rec,
+        DATA_INICIO,
+        HOJE + timedelta(days=1),
+        batch_size=10,
+    )
+
+    print(f"\n✅ Dados pós-corte prontos para {len(DADOS_POS_CORTE)} ativos.")
+else:
+    DADOS_POS_CORTE = {}
+    DADOS_FULL = {}
+    if not resultados_filtrados:
+        print("ℹ️ Sem recomendações — backtesting ignorado.")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## 🔬 Análise de Desempenho das Recomendações
+# MAGIC
+# MAGIC ### Metodologia de avaliação:
+# MAGIC | Resultado | Critério |
+# MAGIC |-----------|----------|
+# MAGIC | ✅ **Alvo atingido** | Preço máximo (High) cruzou o alvo em algum pregão pós-corte |
+# MAGIC | 🛑 **Stop acionado** | Preço mínimo (Low) caiu abaixo de -10% do preço de entrada ANTES de atingir o alvo |
+# MAGIC | ⏳ **Ainda aberto** | Nem alvo nem stop foram acionados até hoje |
+# MAGIC | ❓ **Sem dados** | Dados insuficientes para avaliação |
+
+# COMMAND ----------
+
+# DBTITLE 1,Cálculo do Backtesting por Recomendação
+STOP_PERCENTUAL = -0.10   # Stop implícito de -10%
+
+def avaliar_recomendacao(ticker, preco_entrada, alvo, dados_pos):
+    """
+    Avalia se uma recomendação BNF funcionou após a data de corte.
+    Retorna um dict com o resultado.
+    """
+    if ticker not in dados_pos or len(dados_pos[ticker]) == 0:
+        return {
+            "resultado": "❓ Sem dados",
+            "data_resultado": None,
+            "retorno_realizado": None,
+            "max_preco": None,
+            "min_preco": None,
+            "dias_ate_alvo": None,
+            "cor": "#888888",
+        }
+
+    df_pos = dados_pos[ticker].sort_index()
+    stop_price = preco_entrada * (1 + STOP_PERCENTUAL)
+
+    resultado = "⏳ Ainda aberto"
+    data_res  = None
+    dias_alvo = None
+    cor       = "#FFBB33"
+
+    for i, (dt, row) in enumerate(df_pos.iterrows()):
+        high = row.get("High", row["Close"])
+        low  = row.get("Low",  row["Close"])
+
+        # Verifica stop primeiro (proteção de capital — BNF sempre priorizava isso)
+        if low <= stop_price:
+            resultado = f"🛑 Stop acionado (≤ R$ {stop_price:.2f})"
+            data_res  = dt
+            dias_alvo = i + 1
+            cor       = "#FF4444"
+            break
+
+        # Verifica alvo
+        if high >= alvo:
+            resultado = f"✅ Alvo atingido (≥ R$ {alvo:.2f})"
+            data_res  = dt
+            dias_alvo = i + 1
+            cor       = "#00C851"
+            break
+
+    # Retorno até o último pregão disponível (ou até o resultado)
+    if data_res is not None:
+        ultimo_preco = df_pos.loc[data_res]["Close"]
+    else:
+        ultimo_preco = df_pos.iloc[-1]["Close"]
+
+    retorno_real = ((ultimo_preco - preco_entrada) / preco_entrada) * 100
+
+    return {
+        "resultado":         resultado,
+        "data_resultado":    data_res.strftime("%d/%m/%Y") if data_res else "—",
+        "retorno_realizado": round(retorno_real, 2),
+        "ultimo_preco":      round(ultimo_preco, 2),
+        "max_preco":         round(df_pos["High"].max(), 2) if "High" in df_pos.columns else None,
+        "min_preco":         round(df_pos["Low"].min(), 2)  if "Low"  in df_pos.columns else None,
+        "dias_ate_alvo":     dias_alvo,
+        "cor":               cor,
+    }
+
+
+# Executa avaliação para todas as recomendações
+resultados_backtest = []
+
+if FAZER_BACKTEST and resultados_filtrados:
+    print("🔬 Avaliando desempenho de cada recomendação...\n")
+    for r in resultados_filtrados:
+        av = avaliar_recomendacao(r["ticker"], r["preco"], r["alvo"], DADOS_POS_CORTE)
+        resultados_backtest.append({
+            **r,
+            **av,
+        })
+
+    acertos  = sum(1 for x in resultados_backtest if "✅" in x["resultado"])
+    stops    = sum(1 for x in resultados_backtest if "🛑" in x["resultado"])
+    abertos  = sum(1 for x in resultados_backtest if "⏳" in x["resultado"])
+    sem_dados= sum(1 for x in resultados_backtest if "❓" in x["resultado"])
+    total    = len(resultados_backtest)
+
+    print(f"✅ Alvos atingidos : {acertos}/{total} ({acertos/total*100:.0f}%)")
+    print(f"🛑 Stops acionados : {stops}/{total}  ({stops/total*100:.0f}%)")
+    print(f"⏳ Ainda abertos   : {abertos}/{total} ({abertos/total*100:.0f}%)")
+    print(f"❓ Sem dados       : {sem_dados}/{total}")
+
+# COMMAND ----------
+
+# DBTITLE 1,Tabela HTML de Backtesting
+def gerar_html_backtest(backtest, data_corte, hoje):
+    if not backtest:
+        return "<p style='color:#888;font-family:sans-serif;'>Sem dados de backtesting disponíveis.</p>"
+
+    acertos = sum(1 for x in backtest if "✅" in x["resultado"])
+    stops   = sum(1 for x in backtest if "🛑" in x["resultado"])
+    abertos = sum(1 for x in backtest if "⏳" in x["resultado"])
+    total   = len(backtest)
+    taxa    = acertos / total * 100 if total > 0 else 0
+
+    cor_taxa = "#00C851" if taxa >= 60 else ("#FFBB33" if taxa >= 40 else "#FF4444")
+
+    html = f"""
+    <div style="font-family:'Segoe UI',sans-serif;background:#1E1E2E;color:#CDD6F4;
+         padding:24px;border-radius:16px;margin-top:16px;">
+      <h2 style="color:#CBA6F7;margin:0 0 16px 0;">🔬 Backtesting — Desempenho das Recomendações BNF</h2>
+      <p style="color:#888;font-size:13px;margin-bottom:16px;">
+        Corte: <strong>{data_corte.strftime('%d/%m/%Y')}</strong> →
+        Avaliado até: <strong>{hoje.strftime('%d/%m/%Y')}</strong> |
+        Stop implícito: <strong>-10%</strong> do preço de entrada
+      </p>
+
+      <!-- Resumo -->
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;">
+        <div style="background:#313244;border-radius:10px;padding:10px 20px;border-left:4px solid {cor_taxa};">
+          🎯 <b>Taxa de acerto:</b> <span style="color:{cor_taxa};font-size:18px;font-weight:800;">{taxa:.0f}%</span>
+          <span style="color:#888;font-size:12px;"> ({acertos}/{total})</span>
+        </div>
+        <div style="background:#313244;border-radius:10px;padding:10px 20px;border-left:4px solid #00C851;">
+          ✅ <b>Alvos atingidos:</b> <strong style="color:#00C851;">{acertos}</strong>
+        </div>
+        <div style="background:#313244;border-radius:10px;padding:10px 20px;border-left:4px solid #FF4444;">
+          🛑 <b>Stops acionados:</b> <strong style="color:#FF4444;">{stops}</strong>
+        </div>
+        <div style="background:#313244;border-radius:10px;padding:10px 20px;border-left:4px solid #FFBB33;">
+          ⏳ <b>Ainda abertos:</b> <strong style="color:#FFBB33;">{abertos}</strong>
+        </div>
+      </div>
+
+      <!-- Tabela -->
+      <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead>
+          <tr style="background:#313244;color:#CBA6F7;">
+            <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #45475A;">Ativo</th>
+            <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #45475A;">Estratégia</th>
+            <th style="padding:10px 12px;text-align:right;border-bottom:2px solid #45475A;">Entrada</th>
+            <th style="padding:10px 12px;text-align:right;border-bottom:2px solid #45475A;">Alvo</th>
+            <th style="padding:10px 12px;text-align:right;border-bottom:2px solid #45475A;">Stop</th>
+            <th style="padding:10px 12px;text-align:right;border-bottom:2px solid #45475A;">Score</th>
+            <th style="padding:10px 12px;text-align:center;border-bottom:2px solid #45475A;">Resultado</th>
+            <th style="padding:10px 12px;text-align:center;border-bottom:2px solid #45475A;">Data Result.</th>
+            <th style="padding:10px 12px;text-align:center;border-bottom:2px solid #45475A;">Dias</th>
+            <th style="padding:10px 12px;text-align:right;border-bottom:2px solid #45475A;">Retorno Real</th>
+          </tr>
+        </thead>
+        <tbody>
+    """
+
+    for i, r in enumerate(sorted(backtest, key=lambda x: x["score"], reverse=True)):
+        tk       = r["ticker"].replace(".SA", "")
+        entrada  = r.get("preco", 0)
+        alvo_v   = r.get("alvo", 0)
+        stop_v   = entrada * 0.90
+        score    = r.get("score", 0)
+        estrateg = r.get("estrategia", "")
+        resultado= r.get("resultado", "❓")
+        data_r   = r.get("data_resultado", "—")
+        dias     = r.get("dias_ate_alvo", "—")
+        ret_real = r.get("retorno_realizado", None)
+        cor_linha= r.get("cor", "#888")
+        bg       = "#2A2A3E" if i % 2 == 0 else "#252535"
+
+        ret_str  = f"{ret_real:+.1f}%" if ret_real is not None else "—"
+        ret_cor  = "#00C851" if (ret_real or 0) > 0 else "#FF4444"
+        score_cor= "#00C851" if score >= 75 else ("#FFBB33" if score >= 55 else "#FF6B6B")
+
+        html += f"""
+          <tr style="background:{bg};border-left:3px solid {cor_linha};">
+            <td style="padding:9px 12px;font-weight:700;color:#CDD6F4;">{tk}</td>
+            <td style="padding:9px 12px;color:#888;font-size:12px;">{estrateg}</td>
+            <td style="padding:9px 12px;text-align:right;">R$ {entrada:.2f}</td>
+            <td style="padding:9px 12px;text-align:right;color:#00C851;">R$ {alvo_v:.2f}</td>
+            <td style="padding:9px 12px;text-align:right;color:#FF4444;">R$ {stop_v:.2f}</td>
+            <td style="padding:9px 12px;text-align:right;">
+              <span style="background:{score_cor};color:#000;padding:1px 8px;border-radius:10px;font-weight:700;">{score}</span>
+            </td>
+            <td style="padding:9px 12px;text-align:center;font-weight:600;color:{cor_linha};">{resultado}</td>
+            <td style="padding:9px 12px;text-align:center;color:#888;">{data_r}</td>
+            <td style="padding:9px 12px;text-align:center;color:#888;">{dias if dias != "—" else "—"}</td>
+            <td style="padding:9px 12px;text-align:right;font-weight:700;color:{ret_cor};">{ret_str}</td>
+          </tr>"""
+
+    html += """
+        </tbody>
+      </table>
+      </div>
+      <p style="color:#666;font-size:11px;margin-top:12px;">
+        * Stop implícito de -10% calculado sobre o preço de entrada na data de corte.
+        O stop real deve ser definido pelo trader conforme gestão de risco pessoal.
+      </p>
+    </div>"""
+    return html
+
+
+if FAZER_BACKTEST and resultados_backtest:
+    displayHTML(gerar_html_backtest(resultados_backtest, DATA_CORTE, HOJE))
+elif not FAZER_BACKTEST:
+    print("🔵 Data de corte próxima de hoje — backtesting não aplicável.")
+
+# COMMAND ----------
+
+# DBTITLE 1,Tabela Pandas — Backtesting
+if FAZER_BACKTEST and resultados_backtest:
+    cols_bt = ["ticker", "estrategia", "score", "preco", "alvo", "potencial",
+               "resultado", "data_resultado", "dias_ate_alvo",
+               "retorno_realizado", "ultimo_preco", "max_preco", "min_preco"]
+    df_bt = pd.DataFrame(resultados_backtest)
+    cols_disp = [c for c in cols_bt if c in df_bt.columns]
+    df_bt_ex = df_bt[cols_disp].copy()
+    df_bt_ex["ticker"] = df_bt_ex["ticker"].str.replace(".SA", "", regex=False)
+    df_bt_ex = df_bt_ex.sort_values("score", ascending=False).reset_index(drop=True)
+    display(df_bt_ex)
+
+    # Salva CSV
+    try:
+        path_bt = f"/tmp/bnf_backtest_{DATA_CORTE.strftime('%Y%m%d')}.csv"
+        df_bt_ex.to_csv(path_bt, index=False)
+        print(f"💾 CSV de backtest salvo: {path_bt}")
+    except Exception as e:
+        print(f"⚠️ Não foi possível salvar: {e}")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## 📊 Gráficos de Preço — Ativo × Data de Corte
+# MAGIC
+# MAGIC Cada gráfico mostra:
+# MAGIC - 📈 **Preço de fechamento** completo (histórico + pós-corte)
+# MAGIC - 🟣 **Linha vertical** na data de corte (momento da recomendação)
+# MAGIC - 🟢 **Linha horizontal verde** = preço alvo
+# MAGIC - 🔴 **Linha horizontal vermelha** = preço de stop (-10%)
+# MAGIC - ⚫ **Ponto laranja** = preço de entrada na data de corte
+
+# COMMAND ----------
+
+# DBTITLE 1,Geração dos Gráficos por Ativo
+def plot_ativo_base64(ticker, dados_full, data_corte, preco_entrada, alvo, stop_price, resultado_info):
+    """
+    Gera o gráfico de preço de um ativo e retorna como imagem base64 para displayHTML.
+    """
+    if ticker not in dados_full or len(dados_full[ticker]) < 5:
+        return None
+
+    df_plot = dados_full[ticker].sort_index()
+
+    # Divide em antes e depois da data de corte
+    df_antes = df_plot[df_plot.index <= pd.Timestamp(data_corte)]
+    df_depois = df_plot[df_plot.index >  pd.Timestamp(data_corte)]
+
+    fig, ax = plt.subplots(figsize=(14, 5))
+
+    # Fundo escuro (estilo Databricks)
+    fig.patch.set_facecolor("#1E1E2E")
+    ax.set_facecolor("#1E1E2E")
+
+    # Linha de preço — período antes do corte
+    if len(df_antes) > 0:
+        ax.plot(df_antes.index, df_antes["Close"],
+                color="#89B4FA", linewidth=1.5, label="Preço (pré-corte)", zorder=3)
+
+    # Linha de preço — período após o corte
+    if len(df_depois) > 0:
+        cor_pos = resultado_info.get("cor", "#CDD6F4")
+        ax.plot(df_depois.index, df_depois["Close"],
+                color=cor_pos, linewidth=2.0, label="Preço (pós-corte)", zorder=3)
+
+    # Área sombreada pós-corte
+    if len(df_depois) > 0:
+        ax.axvspan(pd.Timestamp(data_corte), df_plot.index[-1],
+                   alpha=0.08, color="#CBA6F7", zorder=1)
+
+    # Linha vertical na data de corte
+    ax.axvline(x=pd.Timestamp(data_corte), color="#CBA6F7",
+               linewidth=2, linestyle="--", label=f"Data de corte ({data_corte.strftime('%d/%m/%Y')})", zorder=4)
+
+    # Ponto de entrada (preço na data de corte)
+    ax.scatter([pd.Timestamp(data_corte)], [preco_entrada],
+               color="#FAB387", s=80, zorder=6, label=f"Entrada R$ {preco_entrada:.2f}")
+
+    # Linha de alvo
+    ax.axhline(y=alvo, color="#00C851", linewidth=1.2, linestyle="-.",
+               label=f"Alvo R$ {alvo:.2f}", zorder=4)
+
+    # Linha de stop
+    ax.axhline(y=stop_price, color="#FF4444", linewidth=1.2, linestyle=":",
+               label=f"Stop R$ {stop_price:.2f} (-10%)", zorder=4)
+
+    # Marcação do resultado (se houver data de resultado)
+    data_res_str = resultado_info.get("data_resultado", "—")
+    if data_res_str and data_res_str != "—":
+        try:
+            data_res_dt = pd.Timestamp(datetime.strptime(data_res_str, "%d/%m/%Y"))
+            if data_res_dt in df_plot.index or True:
+                # Encontra o preço mais próximo nessa data
+                idx_prox = df_plot.index.searchsorted(data_res_dt)
+                if idx_prox < len(df_plot):
+                    preco_res = df_plot["Close"].iloc[idx_prox]
+                    cor_r = resultado_info.get("cor", "#FFBB33")
+                    marker = "^" if "✅" in resultado_info.get("resultado", "") else ("v" if "🛑" in resultado_info.get("resultado", "") else "o")
+                    ax.scatter([data_res_dt], [preco_res],
+                               color=cor_r, s=120, marker=marker, zorder=7,
+                               label=f"Resultado: {data_res_str}")
+        except Exception:
+            pass
+
+    # Médias móveis (MM25 e MM55) como referência
+    if len(df_plot) >= 25:
+        mm25 = df_plot["Close"].rolling(25).mean()
+        ax.plot(df_plot.index, mm25, color="#F38BA8", linewidth=0.8,
+                linestyle="--", alpha=0.6, label="MM25", zorder=2)
+    if len(df_plot) >= 55:
+        mm55 = df_plot["Close"].rolling(55).mean()
+        ax.plot(df_plot.index, mm55, color="#A6E3A1", linewidth=0.8,
+                linestyle="--", alpha=0.6, label="MM55", zorder=2)
+
+    # Formatação dos eixos
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%b/%Y"))
+    ax.xaxis.set_major_locator(mdates.MonthLocator(interval=2))
+    plt.xticks(rotation=35, color="#CDD6F4", fontsize=9)
+    plt.yticks(color="#CDD6F4", fontsize=9)
+
+    # Grade
+    ax.grid(axis="y", color="#313244", linewidth=0.5, alpha=0.7)
+    ax.grid(axis="x", color="#313244", linewidth=0.3, alpha=0.4)
+    ax.spines[:].set_color("#45475A")
+
+    # Título e labels
+    tk_clean = ticker.replace(".SA", "")
+    resultado_str = resultado_info.get("resultado", "⏳")
+    ret_real = resultado_info.get("retorno_realizado", None)
+    ret_str  = f" | Retorno: {ret_real:+.1f}%" if ret_real is not None else ""
+    ax.set_title(
+        f"{tk_clean}  |  {resultado_str}{ret_str}",
+        color="#CDD6F4", fontsize=13, fontweight="bold", pad=10
+    )
+    ax.set_ylabel("Preço (R$)", color="#CDD6F4", fontsize=10)
+    ax.set_xlabel("Data", color="#CDD6F4", fontsize=10)
+
+    # Legenda
+    legend = ax.legend(loc="upper left", framealpha=0.3,
+                       facecolor="#313244", edgecolor="#45475A",
+                       labelcolor="#CDD6F4", fontsize=8)
+
+    plt.tight_layout(pad=1.5)
+
+    # Converte para base64
+    buf = BytesIO()
+    fig.savefig(buf, format="png", dpi=110, bbox_inches="tight",
+                facecolor=fig.get_facecolor())
+    plt.close(fig)
+    buf.seek(0)
+    return base64.b64encode(buf.read()).decode("utf-8")
+
+
+def gerar_html_graficos(backtest_list, dados_full, data_corte):
+    """Gera bloco HTML com todos os gráficos em grid 1 coluna."""
+    if not backtest_list:
+        return "<p style='color:#888;font-family:sans-serif;'>Nenhum gráfico disponível.</p>"
+
+    html = """
+    <div style="font-family:'Segoe UI',sans-serif;background:#1E1E2E;
+         padding:24px;border-radius:16px;margin-top:12px;">
+      <h2 style="color:#CBA6F7;margin:0 0 20px 0;">📊 Gráficos de Preço por Ativo</h2>
+    """
+
+    for r in sorted(backtest_list, key=lambda x: x["score"], reverse=True):
+        ticker     = r["ticker"]
+        tk_clean   = ticker.replace(".SA", "")
+        entrada    = r.get("preco", 0)
+        alvo       = r.get("alvo", 0)
+        stop_price = entrada * 0.90
+        cor_card   = r.get("cor", "#45475A")
+
+        img_b64 = plot_ativo_base64(
+            ticker, dados_full, data_corte,
+            entrada, alvo, stop_price, r
+        )
+
+        if img_b64 is None:
+            continue
+
+        resultado = r.get("resultado", "—")
+        estrateg  = r.get("estrategia", "")
+        score     = r.get("score", 0)
+        ret_real  = r.get("retorno_realizado", None)
+        ret_str   = f"{ret_real:+.1f}%" if ret_real is not None else "—"
+        ret_cor   = "#00C851" if (ret_real or 0) > 0 else "#FF4444"
+
+        html += f"""
+        <div style="background:#313244;border-radius:14px;padding:16px;
+             margin-bottom:20px;border-left:4px solid {cor_card};">
+          <div style="display:flex;justify-content:space-between;align-items:center;
+               flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+            <div>
+              <span style="font-size:20px;font-weight:800;color:#CDD6F4;">{tk_clean}</span>
+              <span style="margin-left:10px;color:#888;font-size:12px;">{estrateg}</span>
+            </div>
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+              <span style="background:#1E1E2E;padding:3px 10px;border-radius:7px;font-size:13px;">
+                Score: <b style="color:#CBA6F7;">{score}</b>
+              </span>
+              <span style="background:#1E1E2E;padding:3px 10px;border-radius:7px;font-size:13px;">
+                {resultado}
+              </span>
+              <span style="background:#1E1E2E;padding:3px 10px;border-radius:7px;font-size:13px;">
+                Retorno: <b style="color:{ret_cor};">{ret_str}</b>
+              </span>
+            </div>
+          </div>
+          <img src="data:image/png;base64,{img_b64}"
+               style="width:100%;border-radius:8px;display:block;" />
+        </div>"""
+
+    html += "</div>"
+    return html
+
+
+# Gera e exibe os gráficos
+if FAZER_BACKTEST and resultados_backtest and DADOS_FULL:
+    print("📊 Gerando gráficos para cada ativo recomendado...")
+    html_graficos = gerar_html_graficos(resultados_backtest, DADOS_FULL, DATA_CORTE)
+    displayHTML(html_graficos)
+    print("✅ Gráficos gerados!")
+elif FAZER_BACKTEST and resultados_filtrados and not DADOS_FULL:
+    print("⚠️ Dados completos não disponíveis para gerar gráficos.")
+else:
+    print("🔵 Gráficos de backtesting não aplicáveis (data atual).")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## 🏁 Fim do Notebook BNF Simulator
+# MAGIC
+# MAGIC ---
+# MAGIC
+# MAGIC ### 📌 Resumo do que foi feito:
+# MAGIC 1. ✅ Data de corte validada e dados históricos baixados da B3
+# MAGIC 2. ✅ Indicadores calculados (MM9/21/25/55/200, Kairi, RSI, ATR, Bollinger, Volume Ratio)
+# MAGIC 3. ✅ Regime de mercado detectado automaticamente (Bear / Neutro / Bull)
+# MAGIC 4. ✅ 5 estratégias BNF aplicadas em todos os ativos
+# MAGIC 5. ✅ Recomendações exibidas com explicação didática e score de confiança
+# MAGIC 6. ✅ Backtesting automático (se data de corte no passado)
+# MAGIC 7. ✅ Gráficos individuais com linha de corte, alvo e stop
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC > ⚠️ **Lembre-se sempre dos 7 princípios de BNF:**
+# MAGIC > 1. Nunca opere sem stop-loss
+# MAGIC > 2. Liquidez é obrigatória
+# MAGIC > 3. O mercado está sempre certo
+# MAGIC > 4. Paciência é vantagem
+# MAGIC > 5. Controle emocional
+# MAGIC > 6. Diversifique as posições
+# MAGIC > 7. O preço sempre reverte à média
