@@ -1,4 +1,9 @@
 # Databricks notebook source
+# /// script
+# [tool.databricks.environment]
+# base_environment = "databricks_ai_v5"
+# environment_version = "5"
+# ///
 # MAGIC %md
 # MAGIC # 🎯 BNF Simulator — Estratégias de Takashi Kotegawa para Ações Brasileiras
 # MAGIC
@@ -39,8 +44,17 @@
 
 # COMMAND ----------
 
+# MAGIC %pip install yfinance requests tqdm --quiet
+# MAGIC
+
+# COMMAND ----------
+
 # DBTITLE 1,Instalação de Pacotes
-%pip install yfinance pandas-ta requests tqdm --quiet
+# MAGIC %pip install yfinance requests tqdm --quiet
+
+# COMMAND ----------
+
+# MAGIC %restart_python
 
 # COMMAND ----------
 
@@ -964,10 +978,10 @@ else:
 # MAGIC > Se a data de corte for hoje ou futura, esta seção é ignorada automaticamente.
 # MAGIC >
 # MAGIC > Para cada ativo recomendado, verificamos:
-# MAGIC > - ✅ Se o preço atingiu o **alvo** após a data de corte
-# MAGIC > - ❌ Se o preço caiu abaixo de um **stop implícito** (-10% do preço de entrada)
-# MAGIC > - 📅 Em qual data o alvo foi atingido (caso positivo)
-# MAGIC > - 📊 Gráfico de preço do ativo do início ao fim, com linha vertical na data de corte
+# MAGIC > * ✅ Se o preço atingiu o **alvo** após a data de corte
+# MAGIC > * ❌ Se o preço caiu abaixo de um **stop implícito** (-10% do preço de entrada)
+# MAGIC > * 📅 Em qual data o alvo foi atingido (caso positivo)
+# MAGIC > * 📊 Gráfico de preço do ativo do início ao fim, com linha vertical na data de corte
 
 # COMMAND ----------
 
@@ -1501,3 +1515,10 @@ else:
 # MAGIC > 5. Controle emocional
 # MAGIC > 6. Diversifique as posições
 # MAGIC > 7. O preço sempre reverte à média
+# MAGIC =======
+# MAGIC
+# MAGIC >>>>>>> Stashed changes
+
+# COMMAND ----------
+
+

@@ -1,5 +1,6 @@
 # Databricks notebook source
-
+# MAGIC %md Arquivos em Catalog Workspace Default  Tables
+# MAGIC
 
 # COMMAND ----------
 
@@ -16,6 +17,41 @@
 # MAGIC **Modos de uso:**
 # MAGIC - **Manual**: Execute o notebook pelo Databricks quando quiser uma coleta
 # MAGIC - **Agendado**: Configure cron no WSL para executar a cada 30 min via API REST
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Como agendar o Job no Databricks Free Edition
+# MAGIC
+# MAGIC ### Resumo rápido (6 passos):
+# MAGIC
+# MAGIC 1. **Importar** o notebook `pipeline_cotacoes.py` no workspace
+# MAGIC 2. **Testar** manualmente com Run All
+# MAGIC 3. **Criar o Job**:
+# MAGIC     
+# MAGIC     - Menu lateral → **Workflows** → **Create Job**
+# MAGIC     - Task type: **Notebook** → aponte para `pipeline_cotacoes`
+# MAGIC     - Compute: **Serverless**
+# MAGIC     - Add trigger → **Scheduled** → modo **Cron**:
+# MAGIC     
+# MAGIC     0 */30 10-17 ? * MON-FRI
+# MAGIC     
+# MAGIC     - Timezone: **America/Sao_Paulo**
+# MAGIC 4. **Salvar** e verificar que está ativo
+# MAGIC 5. **Monitorar** pela aba Runs do job
+# MAGIC 6. (Opcional) Configurar **alertas por email** em caso de falha
+# MAGIC
+# MAGIC ### Limites a observar:
+# MAGIC
+# MAGIC |Recurso|Limite|
+# MAGIC |---|---|
+# MAGIC |Tasks concorrentes|Máx **5**|
+# MAGIC |Compute|Apenas **Serverless**|
+# MAGIC |Cotas|Diárias/mensais|
+# MAGIC
+# MAGIC
+# MAGIC
+# MAGIC
 
 # COMMAND ----------
 

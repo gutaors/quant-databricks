@@ -1,5 +1,6 @@
 # Databricks notebook source
 
+
 # COMMAND ----------
 
 # MAGIC %md
@@ -338,3 +339,7 @@ displayHTML("<h2>🎯 Resumo e Finalização</h2>")
 displayHTML(f"<p>Análise completa do ativo <b>{ticker}</b> executada e consolidada com sucesso.</p>")
 displayHTML(f"<p><b>Data analisada:</b> de {data_inicial.date()} até {data_corte.date()}</p>")
 displayHTML(html_alert("<b>Aviso:</b> Lembre-se de avaliar conjuntamente os indicadores técnicos, as previsões (Prophet/GPT) e as notícias fundamentais antes de qualquer decisão de investimento. O conteúdo não representa recomendação de compra direta.", "info"))
+
+# COMMAND ----------
+
+
