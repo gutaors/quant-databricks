@@ -1,9 +1,4 @@
 # Databricks notebook source
-# /// script
-# [tool.databricks.environment]
-# base_environment = "databricks_ai_v5"
-# environment_version = "5"
-# ///
 # MAGIC %md
 # MAGIC # 🎯 BNF Simulator — Estratégias de Takashi Kotegawa para Ações Brasileiras
 # MAGIC
@@ -44,17 +39,8 @@
 
 # COMMAND ----------
 
-# MAGIC %pip install yfinance requests tqdm --quiet
-# MAGIC
-
-# COMMAND ----------
-
 # DBTITLE 1,Instalação de Pacotes
-# MAGIC %pip install yfinance requests tqdm --quiet
-
-# COMMAND ----------
-
-# MAGIC %restart_python
+%pip install yfinance pandas-ta requests tqdm --quiet
 
 # COMMAND ----------
 
@@ -978,10 +964,10 @@ else:
 # MAGIC > Se a data de corte for hoje ou futura, esta seção é ignorada automaticamente.
 # MAGIC >
 # MAGIC > Para cada ativo recomendado, verificamos:
-# MAGIC > * ✅ Se o preço atingiu o **alvo** após a data de corte
-# MAGIC > * ❌ Se o preço caiu abaixo de um **stop implícito** (-10% do preço de entrada)
-# MAGIC > * 📅 Em qual data o alvo foi atingido (caso positivo)
-# MAGIC > * 📊 Gráfico de preço do ativo do início ao fim, com linha vertical na data de corte
+# MAGIC > - ✅ Se o preço atingiu o **alvo** após a data de corte
+# MAGIC > - ❌ Se o preço caiu abaixo de um **stop implícito** (-10% do preço de entrada)
+# MAGIC > - 📅 Em qual data o alvo foi atingido (caso positivo)
+# MAGIC > - 📊 Gráfico de preço do ativo do início ao fim, com linha vertical na data de corte
 
 # COMMAND ----------
 
@@ -1491,6 +1477,43 @@ else:
 # COMMAND ----------
 
 # MAGIC %md
+# MAGIC ## 💰 Extrato Final — Simulação de Investimento
+# MAGIC Simulando investimento de R$ 1.000,00 em cada recomendação gerada, calculando o valor retornado.
+
+# COMMAND ----------
+
+# DBTITLE 1,Extrato Final
+if FAZER_BACKTEST and 'df_bt_ex' in locals() and not df_bt_ex.empty:
+    df_extrato = df_bt_ex.copy()
+    
+    def calcular_investi_mil(row):
+        investimento = 1000.00
+        # Se há retorno realizado (já bateu alvo ou stop)
+        if pd.notna(row.get("retorno_realizado")):
+            return investimento * (1 + row["retorno_realizado"] / 100)
+        # Se ainda não bateu nem alvo nem stop, calcula pelo preço atual vs preço entrada
+        elif pd.notna(row.get("ultimo_preco")) and pd.notna(row.get("preco")) and row.get("preco") > 0:
+            retorno_atual = (row["ultimo_preco"] - row["preco"]) / row["preco"]
+            return investimento * (1 + retorno_atual)
+        return investimento
+
+    # Calcula a nova coluna
+    df_extrato["investi_mil"] = df_extrato.apply(calcular_investi_mil, axis=1).round(2)
+    
+    # Criar a linha de TOTAL no final do dataframe
+    linha_total = {col: "" for col in df_extrato.columns}
+    linha_total["ticker"] = "TOTAL"
+    linha_total["investi_mil"] = df_extrato["investi_mil"].sum().round(2)
+    
+    # Junta com a linha de total
+    df_extrato_display = pd.concat([df_extrato, pd.DataFrame([linha_total])], ignore_index=True)
+    
+    displayHTML("<h3>💵 Extrato Final — Simulação com R$ 1.000 por ação</h3>")
+    display(df_extrato_display)
+
+# COMMAND ----------
+
+# MAGIC %md
 # MAGIC ## 🏁 Fim do Notebook BNF Simulator
 # MAGIC
 # MAGIC ---
@@ -1503,6 +1526,8 @@ else:
 # MAGIC 5. ✅ Recomendações exibidas com explicação didática e score de confiança
 # MAGIC 6. ✅ Backtesting automático (se data de corte no passado)
 # MAGIC 7. ✅ Gráficos individuais com linha de corte, alvo e stop
+# MAGIC 8. ✅ Extrato financeiro simulado com lucro e prejuízo total
+# MAGIC 
 
 # COMMAND ----------
 
@@ -1515,10 +1540,3 @@ else:
 # MAGIC > 5. Controle emocional
 # MAGIC > 6. Diversifique as posições
 # MAGIC > 7. O preço sempre reverte à média
-# MAGIC =======
-# MAGIC
-# MAGIC >>>>>>> Stashed changes
-
-# COMMAND ----------
-
-
