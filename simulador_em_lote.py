@@ -54,7 +54,7 @@
 #    Formato: "YYYY-MM-DD"
 #    A data deve ser um pregão válido (dia útil).
 #    Se for fim de semana ou feriado, o notebook usa o próximo pregão disponível.
-DATA_ENTRADA = "2024-01-02"
+DATA_ENTRADA = "2025-09-12"
 
 # ── 2) VALOR INVESTIDO POR AÇÃO (em R$) ───────────────────────
 #    Este valor será investido INDIVIDUALMENTE em CADA ticker.
@@ -64,19 +64,42 @@ VALOR_POR_ACAO = 1000.00
 # ── 3) LISTA DE TICKERS ───────────────────────────────────────
 #    Use o código de negociação da B3 + ".SA" (padrão Yahoo Finance)
 #    Exemplos: "PETR4.SA", "VALE3.SA", "WEGE3.SA"
-TICKERS = [
-    "PETR4.SA",
-    "VALE3.SA",
-    "WEGE3.SA",
-    "ITUB4.SA",
-    "BBAS3.SA",
-    "ABEV3.SA",
-    "RENT3.SA",
-    "RADL3.SA",
-    "EGIE3.SA",
-    "PRIO3.SA",
-]
+#TICKERS = [
+#    "PETR4.SA",
+#    "VALE3.SA",
+#    "WEGE3.SA",
+#    "ITUB4.SA",
+#    "BBAS3.SA",
+#    "ABEV3.SA",
+#    "RENT3.SA",
+#    "RADL3.SA",
+#    "EGIE3.SA",
+#    "PRIO3.SA",
+#]
 
+
+TICKERS = [
+    "TIMS3.SA",
+    "TOTS3.SA",
+    "YDUQ3.SA",
+    "B3SA3.SA",
+    "JHSF3.SA",
+    "PETR4.SA",
+    "PETR3.SA",
+    "ITUB4.SA",
+    "ABEV3.SA",
+    "KLBN11.SA",
+    "GGBR4.SA",
+    "EQTL3.SA",
+    "CMIG4.SA",
+    "EGIE3.SA",
+    "MRVE3.SA",
+    "COGN3.SA",
+    "ITSA4.SA",
+    "HAPV3.SA",
+    "SMTO3.SA",
+    "RANI3.SA",
+]
 # =============================================================
 #  FIM DA CONFIGURAÇÃO — não precisa editar abaixo desta linha
 # =============================================================
@@ -104,7 +127,7 @@ for tk in TICKERS:
 # COMMAND ----------
 
 # DBTITLE 1,Instalação de dependências
-%pip install yfinance --quiet
+# MAGIC %pip install yfinance --quiet
 
 # COMMAND ----------
 
@@ -1108,3 +1131,7 @@ if linhas:
 # MAGIC > ⚠️ **Aviso Legal:** Esta simulação é puramente educacional e retrospectiva.
 # MAGIC > Resultados passados não garantem resultados futuros.
 # MAGIC > Não considera custos de corretagem, impostos (IOF, IR) ou liquidez real do mercado.
+
+# COMMAND ----------
+
+
