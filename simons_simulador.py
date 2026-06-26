@@ -50,7 +50,11 @@
 # COMMAND ----------
 
 # DBTITLE 1,Instalação de Pacotes
-%pip install yfinance statsmodels scipy pandas numpy matplotlib --quiet
+# MAGIC %pip install yfinance statsmodels scipy pandas numpy matplotlib --quiet
+
+# COMMAND ----------
+
+# MAGIC %restart_python
 
 # COMMAND ----------
 
@@ -1772,3 +1776,7 @@ elif not FAZER_BACKTEST:
 # MAGIC > - **Simons** é ideal para **sistemas sistemáticos** que operam sem emoção, com regras claras
 # MAGIC >
 # MAGIC > O melhor trader é aquele que entende qual é seu edge e o executa com disciplina.
+
+# COMMAND ----------
+
+
