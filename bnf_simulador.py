@@ -1,4 +1,8 @@
 # Databricks notebook source
+# /// script
+# [tool.databricks.environment]
+# environment_version = "5"
+# ///
 # MAGIC %md
 # MAGIC # 🎯 BNF Simulator — Estratégias de Takashi Kotegawa para Ações Brasileiras
 # MAGIC
@@ -40,7 +44,11 @@
 # COMMAND ----------
 
 # DBTITLE 1,Instalação de Pacotes
-%pip install yfinance pandas-ta requests tqdm --quiet
+# MAGIC %pip install yfinance pandas-ta requests tqdm --quiet
+
+# COMMAND ----------
+
+# MAGIC  %restart_python 
 
 # COMMAND ----------
 
@@ -1527,7 +1535,7 @@ if FAZER_BACKTEST and 'df_bt_ex' in locals() and not df_bt_ex.empty:
 # MAGIC 6. ✅ Backtesting automático (se data de corte no passado)
 # MAGIC 7. ✅ Gráficos individuais com linha de corte, alvo e stop
 # MAGIC 8. ✅ Extrato financeiro simulado com lucro e prejuízo total
-# MAGIC 
+# MAGIC
 
 # COMMAND ----------
 
