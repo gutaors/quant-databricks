@@ -1,4 +1,13 @@
 # Databricks notebook source
+# /// script
+# [tool.databricks.environment]
+# environment_version = "2"
+# dependencies = [
+#   "yfinance",
+#   "requests",
+#   "tqdm",
+# ]
+# ///
 # MAGIC %md
 # MAGIC # 🏆 BNF — Melhor Ação do Dia
 # MAGIC
@@ -29,7 +38,7 @@
 # COMMAND ----------
 
 # DBTITLE 1,Instalação
-%pip install yfinance pandas-ta requests tqdm --quiet
+# MAGIC %pip install yfinance requests tqdm
 
 # COMMAND ----------
 
