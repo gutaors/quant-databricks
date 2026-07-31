@@ -1521,6 +1521,73 @@ if FAZER_BACKTEST and 'df_bt_ex' in locals() and not df_bt_ex.empty:
 
 # COMMAND ----------
 
+if FAZER_BACKTEST and 'df_extrato_display' in locals() and not df_extrato_display.empty:
+    # Remove linha TOTAL para cálculos
+    df_extrato = df_extrato_display[df_extrato_display["ticker"] != "TOTAL"].copy()
+
+    qtd_recomendadas = len(df_extrato)
+    investimento_total = qtd_recomendadas * 1000.00
+    lucro_total = df_extrato["investi_mil"].sum() - investimento_total
+    lucro_percentual = (lucro_total / investimento_total) * 100 if investimento_total > 0 else 0
+
+    qtd_stop = sum(df_extrato["resultado"].str.contains("🛑"))
+    qtd_alvo = sum(df_extrato["resultado"].str.contains("✅"))
+    pct_stop = (qtd_stop / qtd_recomendadas) * 100 if qtd_recomendadas > 0 else 0
+    pct_alvo = (qtd_alvo / qtd_recomendadas) * 100 if qtd_recomendadas > 0 else 0
+
+    cor_lucro = "#00C851" if lucro_total >= 0 else "#FF4444"
+    cor_lucro_pct = "#00C851" if lucro_percentual >= 0 else "#FF4444"
+    cor_stop = "#FF4444"
+    cor_alvo = "#00C851"
+
+    html_quadro = f"""
+    <div style="font-family:'Segoe UI',sans-serif;background:#1E1E2E;color:#CDD6F4;
+         padding:24px;border-radius:16px;margin-top:16px;max-width:480px;">
+      <h3 style="color:#CBA6F7;margin-bottom:18px;">📊 Quadro Resumo — Backtesting</h3>
+      <table style="width:100%;border-collapse:collapse;font-size:15px;">
+        <tr>
+          <td style="padding:8px 12px;color:#CDD6F4;">Quantidade de ações recomendadas:</td>
+          <td style="padding:8px 12px;font-weight:700;text-align:right;color:#CDD6F4;">{qtd_recomendadas}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 12px;color:#CDD6F4;">Investimento total:</td>
+          <td style="padding:8px 12px;font-weight:700;text-align:right;color:#CDD6F4;">R$ {investimento_total:,.2f}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 12px;color:#CDD6F4;">Lucro/Prejuízo total:</td>
+          <td style="padding:8px 12px;font-weight:700;text-align:right;color:{cor_lucro};">
+            {lucro_total:+,.2f}
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:8px 12px;color:#CDD6F4;">Lucro/Prejuízo percentual:</td>
+          <td style="padding:8px 12px;font-weight:700;text-align:right;color:{cor_lucro_pct};">
+            {lucro_percentual:+.2f}%
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:8px 12px;color:#CDD6F4;">Quantidade de stop:</td>
+          <td style="padding:8px 12px;font-weight:700;text-align:right;color:{cor_stop};">{qtd_stop}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 12px;color:#CDD6F4;">Quantidade de alvo atingido:</td>
+          <td style="padding:8px 12px;font-weight:700;text-align:right;color:{cor_alvo};">{qtd_alvo}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 12px;color:#CDD6F4;">Percentual de stop:</td>
+          <td style="padding:8px 12px;font-weight:700;text-align:right;color:{cor_stop};">{pct_stop:.1f}%</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 12px;color:#CDD6F4;">Percentual de alvo atingido:</td>
+          <td style="padding:8px 12px;font-weight:700;text-align:right;color:{cor_alvo};">{pct_alvo:.1f}%</td>
+        </tr>
+      </table>
+    </div>
+    """
+    displayHTML(html_quadro)
+
+# COMMAND ----------
+
 # MAGIC %md
 # MAGIC ## 🏁 Fim do Notebook BNF Simulator
 # MAGIC
